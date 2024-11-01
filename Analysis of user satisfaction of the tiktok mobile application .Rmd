@@ -1,0 +1,324 @@
+---
+title: "Evaluasi Kepuasan Pengguna Media Sosial TikTok"
+author: "KELOMPOK TIKTOK "
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r Import data}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(moments)
+library(nortest)
+library(reshape2)
+library(readxl)
+library(RColorBrewer)
+library(lessR)
+library(scales)
+data <- read_excel("D:/Users/FEESHA/Downloads/jawabandocs.xlsx")%>% na.omit()
+data$`Umur Responden` <- ifelse(data$`Umur Responden` == "Di bawah 18 tahun", "<18 tahun", ">=18 tahun")
+data$`Sudah berapa lama Anda menjadi pengguna aplikasi tiktok?` <- ifelse(data$`Sudah berapa lama Anda menjadi pengguna aplikasi tiktok?` == "Kurang dari 3 bulan", "<3 bulan", ">=3 bulan")
+
+head(data)
+colnames(data)
+palette <- brewer.pal(9, "Pastel1")
+pastel_colors <- colorRampPalette(palette)(9)
+```
+
+```{r}
+jk <- table(data$`Jenis Kelamin`)
+jkdf <- data.frame(jk = data$`Jenis Kelamin`)
+jk_df <- data.frame(Jenis_Kelamin = names(jk), Count = as.numeric(jk))
+
+ggplot(jk_df, aes(x = "", y = Count, fill = Jenis_Kelamin)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  scale_fill_manual(values = c("#89CFF0", "#F49AC2")) +
+  geom_text(aes(x = 1.5, y = cumsum(Count) - (0.5 * Count), label = paste0(Count, " (", percent(Count/sum(Count)), ")")), color = "black")
+
+
+x <- data.frame(Jenis_Kelamin = c("Perempuan", "Laki-laki"),
+                Persen = c(66.1, 33.9))
+
+ggplot(x, aes(x = "", y = Persen, fill = Jenis_Kelamin)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  scale_fill_manual(values = c("#89CFF0", "#F49AC2")) +
+  geom_text(aes(x = 1.5, y = cumsum(Persen) - (0.5 * Persen), label = paste0(Persen, "%")), color = "black")
+
+```
+
+```{r }
+tab1 <- table(data$`Umur Responden`, data$`Jenis Kelamin`, data$`Tingkat pendidikan terakhir yang telah Anda selesaikan?`)
+ftable(tab1)
+df <- melt(tab1)
+head(df)
+colnames(df) <- c("Usia","Jenis Kelamin", "Tingkat Pendidikan Terakhir", "Count")
+ggplot(df, aes(x = Usia, y = Count, fill = `Tingkat Pendidikan Terakhir`)) + 
+  geom_bar(stat = "identity",position = "stack") + facet_wrap(~ `Jenis Kelamin`, nrow = 1) +  labs(x = "Usia", y = "Frekuensi", fill = "Tingkat Pendidikan Terakhir") +
+  scale_fill_discrete(name = "Frekuensi") + geom_text(data = subset(df, Count > 0),aes(label=Count), position=position_stack(vjust=0.5)) +scale_fill_manual(values = pastel_colors)
+```
+
+```{r }
+tab2 <- table(data$`Umur Responden`, data$`Jenis Kelamin`, data$`Sudah berapa lama Anda menjadi pengguna aplikasi tiktok?`)
+ftable(tab2)
+df1 <- melt(tab2)
+head(df1)
+colnames(df1) <- c("Usia","Jenis Kelamin",  "Lama Pengguna Tiktok", "Count")
+ggplot(df1, aes(x = Usia, y = Count, fill = `Lama Pengguna Tiktok`)) + 
+  geom_bar(stat = "identity",position = "stack") + facet_wrap(~ `Jenis Kelamin`, nrow = 1) +  labs(x = "Usia", y = "Frekuensi", fill = "Lama Pengguna Tiktok") +
+  scale_fill_discrete(name = "Frekuensi") + geom_text(data = subset(df1, Count > 0),aes(label=Count), position=position_stack(vjust=0.5))+scale_fill_manual(values = pastel_colors)
+```
+
+```{r}
+fitur <- data.frame(
+  Usia = data$`Umur Responden`,
+  Jenis_kelamin = data$`Jenis Kelamin`,
+  Tingkat_pendidikan_terakhir = data$`Tingkat pendidikan terakhir yang telah Anda selesaikan?`,
+  Lama_penggunaan_Tiktok = data$`Sudah berapa lama Anda menjadi pengguna aplikasi tiktok?`,
+  Fitur_Unggulan = data$`Apa fitur unggulan Tiktok dari aplikasi serupa? (Boleh pilih lebih dari satu)`,
+  Lama_penggunaan_harian = data$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`,
+  Skor_kemudahan_penggunaan_tiktok = data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?`,
+  kesesuaian_konten_fyp = data$`Apakah mayoritas konten FYP (For Your Page) yang muncul di beranda sudah sesuai dengan minat Anda?`,
+  kepuasan_pengguna = data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`,
+  kemungkinan_merekomendasikan = data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`
+)
+head(fitur)
+
+library(tidyverse)
+
+data_fitur <- fitur %>% select(Jenis_kelamin, Fitur_Unggulan) %>%
+  separate_rows(Fitur_Unggulan, sep = ",") %>%
+  distinct() %>%
+  mutate(Fitur_Unggulan = str_trim(Fitur_Unggulan))
+
+freq_fitur <- data_fitur %>% 
+  group_by(Jenis_kelamin, Fitur_Unggulan) %>% 
+  summarise(frequency = n()) %>% 
+  ungroup()
+
+ggplot(freq_fitur, aes(x=frequency, y=Jenis_kelamin, fill=Fitur_Unggulan)) +
+  geom_col(position="dodge") +
+  labs(title="Frekuensi Fitur Unggulan Tiktok Berdasarkan Jenis Kelamin", y="Jenis Kelamin", x="Frekuensi") +
+  theme_minimal() + 
+  theme(legend.key.width = unit(0.5, "cm"), legend.text = element_text(size=8), legend.position = "bottom") +
+  coord_flip() + 
+  geom_text(data = subset(freq_fitur, frequency > 0),aes(label=frequency), position=position_stack(vjust=0.5)) +
+  guides(fill = guide_legend(ncol = 1)) + scale_fill_manual(values = pastel_colors)
+
+data_fitur1 <- fitur %>% select(Tingkat_pendidikan_terakhir, Fitur_Unggulan) %>%
+  separate_rows(Fitur_Unggulan, sep = ",") %>%
+  distinct() %>%
+  mutate(Fitur_Unggulan = str_trim(Fitur_Unggulan))
+
+freq_pend <- data_fitur1 %>% 
+  group_by(Tingkat_pendidikan_terakhir, Fitur_Unggulan) %>% 
+  summarise(frequency = n()) %>% 
+  ungroup()
+
+ggplot(freq_pend, aes(x=frequency, y=Tingkat_pendidikan_terakhir, fill=Fitur_Unggulan)) +
+  geom_col(position="dodge") +
+  labs(title="Frekuensi Fitur Unggulan Tiktok Berdasarkan Tingkat Pendidikan Terakhir", y="Tingkat Pendidikan Terakhir", x="Frekuensi") +
+  theme_minimal() + 
+  theme(legend.key.width = unit(0.5, "cm"), legend.text = element_text(size=8), legend.position = "bottom") +
+  coord_flip() + 
+  geom_text(data = subset(freq_pend, frequency > 0),aes(label=frequency), position=position_stack(vjust=0.5)) +
+  guides(fill = guide_legend(ncol = 2)) + scale_fill_manual(values = pastel_colors)
+
+
+
+
+#anova
+
+anov1 <- aov(`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`~ data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`, data=data)
+summary(anov1)
+TukeyHSD(anov1)
+
+anov2 <- aov(`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`~ data$`Tingkat pendidikan terakhir yang telah Anda selesaikan?`, data=data)
+summary(anov2)
+TukeyHSD(anov2)
+
+anov3 <- aov(`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`~ as.factor(data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?`), data=data)
+summary(anov3)
+TukeyHSD(anov3)
+
+anov4 <- aov(`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`~ as.factor(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`), data=data)
+summary(anov4)
+TukeyHSD(anov4)
+```
+
+```{r }
+cor.test(data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?`,data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`, method = "spearman")
+# Mengubah tipe data menjadi ordinal
+data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?` <- factor(data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?`, ordered = TRUE)
+levels(data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?`) <- c("Sangat Mudah", "Mudah", "Sedang", "Sulit", "Sangat Sulit")
+tab4 <- table(data$`Umur Responden`,data$`Jenis Kelamin`,data$`Dari skala 1-5, berapa skor Anda terkait kemudahan dalam menggunakan aplikasi Tiktok?`)
+ftable(tab4)
+df3 <- melt(tab4)
+head(df3)
+colnames(df3) <- c("Usia","Jenis Kelamin",  "Skor Kemudahan Penggunaan Tiktok", "Count")
+ggplot(df3, aes(x = Usia, y = Count, fill = `Skor Kemudahan Penggunaan Tiktok`)) + 
+  geom_bar(stat = "identity",position = "stack") + facet_wrap(~ `Jenis Kelamin`, nrow = 1) +  labs(x = "Usia", y = "Frekuensi", fill = "Skor Kemudahan Penggunaan Tiktok") +
+  scale_fill_discrete(name = "Frekuensi") + geom_text(data = subset(df3, Count > 0),aes(label=Count), position=position_stack(vjust=0.5)) + scale_fill_manual(values = pastel_colors)
+```
+
+```{r }
+tab5 <- table(data$`Umur Responden`,data$`Jenis Kelamin`,data$`Apakah mayoritas konten FYP (For Your Page) yang muncul di beranda sudah sesuai dengan minat Anda?`)
+ftable(tab5)
+df4 <- melt(tab5)
+head(df4)
+colnames(df4) <- c( "Usia","Jenis Kelamin", "Kesesuaian Konten FYP dengan Minat", "Count")
+ggplot(df4, aes(x = Usia, y = Count, fill = `Kesesuaian Konten FYP dengan Minat`)) + 
+  geom_bar(stat = "identity",position = "stack") + facet_wrap(~ `Jenis Kelamin`, nrow = 1) +  labs(x = "Usia", y = "Frekuensi", fill = "Kesesuaian Konten FYP dengan Minat") +
+  scale_fill_discrete(name = "Frekuensi") + geom_text(data = subset(df4, Count > 0),aes(label=Count), position=position_stack(vjust=0.5)) +scale_fill_manual(values = pastel_colors)
+```
+
+```{r}
+tab6 <- table(data$`Umur Responden`,data$`Jenis Kelamin`,data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`)
+ftable(tab6)
+df5 <- melt(tab6)
+head(df5)
+colnames(df5) <- c( "Usia","Jenis Kelamin", "Kepuasan Penggunaan Tiktok secara Keseluruhan", "Count")
+ggplot(df5, aes(x = Usia, y = Count, fill = `Kepuasan Penggunaan Tiktok secara Keseluruhan`)) + 
+  geom_bar(stat = "identity",position = "stack") + facet_wrap(~ `Jenis Kelamin`, nrow = 1) +  labs(x = "Usia", y = "Frekuensi", fill = "Kepuasan Penggunaan Tiktok secara Keseluruhan") +
+  scale_fill_discrete(name = "Frekuensi") + geom_text(data = subset(df5, Count > 0),aes(label=Count), position=position_stack(vjust=0.5)) +scale_fill_manual(values = pastel_colors)
+```
+
+```{r}
+data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga` <- factor(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`, ordered = TRUE)
+head(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`)
+levels(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`) <- c("Sangat Rendah", "Rendah", "Sedang", "Tinggi", "Sangat Tinggi")
+tab7 <- table(data$`Umur Responden`,data$`Jenis Kelamin`,data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`)
+ftable(tab7)
+df6 <- melt(tab7)
+df6
+colnames(df6) <- c( "Usia","Jenis Kelamin", "Kemungkinan merekomendasikan Tiktok", "Count")
+ggplot(df6, aes(x = Usia, y = Count, fill = `Kemungkinan merekomendasikan Tiktok`)) + 
+  geom_bar(stat = "identity",position = "stack") + facet_wrap(~ `Jenis Kelamin`, nrow = 1) +  labs(x = "Usia", y = "Frekuensi", fill = "Kemungkinan merekomendasikan Tiktok") +
+  scale_fill_discrete(name = "Frekuensi") + geom_text(data = subset(df6, Count > 0),aes(label=Count), position=position_stack(vjust=0.5))+scale_fill_manual(values = pastel_colors)
+```
+
+```{r }
+lama_waktu <- data$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`
+head(lama_waktu)
+boxplot(lama_waktu, col = "#BFD6D6", ylab= "Lama Waktu Penggunaan Tiktok Tiap Hari (jam)")
+boxplot.stats(lama_waktu)
+summarise <- c(round(summary(lama_waktu),2), "var" = round(var(lama_waktu), 2))
+summarise
+```
+
+Nilai skewness dari data lama waktu sebesar
+
+```{r Uji normalitas}
+skewness(lama_waktu)
+```
+
+karena nilainya positif, maka kemiringan (skewness) distribusi data tersebut cenderung ke arah kanan. Hal ini sesuai dengan boxplot di atas dimana jarak antara garis median dengan upper whisker lebih besar daripada jarak ke lower whisker.
+
+```{r histogram}
+hist(lama_waktu,xlab="Lama waktu penggunaan aplikasi Tiktok",xlim = c(1,8), ylab="Frequency", col = "#89CFF0", freq = TRUE) 
+```
+
+H0: Lama waktu penggunaantiktok dalam sehari berdistribusi normal H1: Lama waktu penggunaantiktok dalam sehari tidak berdistribusi normal Tolak H0 jika p-value kurang dari 0,05 (tingkat signifikansi/alpha)
+
+```{r}
+ad.test(lama_waktu)
+```
+
+Hipotesis: H0: Rata-rata lama waktu responden menggunakan TikTok tiap hari sama dengan 3,36 jam H1: Rata-rata lama waktu responden menggunakan TikTok tiap hari lebih dari 3,36 jam
+
+```{r one sample t test}
+t_test1 <- t.test(data$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`, mu = 3.36,alternative = "greater")
+t_test1
+cat("Hasil Uji T Satu Sampel", "\n")
+cat("T-value:", t_test1$statistic, "\n")
+cat("P-value:", t_test1$p.value, "\n")
+```
+
+Hipotesa yang digunakan: H0: Rata-rata lama waktu penggunaan aplikasi tiktok responden perempuan sama dengan responden laki-laki H1: Rata-rata lama waktu penggunaan aplikasi tiktok responden perempuan lebih tinggi daripada responden laki-laki
+
+```{r t-test 2 sample test}
+data_laki_laki <- data %>% filter(`Jenis Kelamin` == "Laki-laki")
+data_perempuan <- data %>% filter(`Jenis Kelamin` == "Perempuan")
+var.test(data_perempuan$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`, data_laki_laki$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`)
+t_test2 <- t.test(data_perempuan$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`,data_laki_laki$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`, alternative = c("greater"), var.equal = TRUE)
+t_test2
+cat("Hasil Uji T Dua Sampel")
+cat("T-value:", t_test2$statistic, "\n")
+cat("P-value:", t_test2$p.value, "\n")
+
+#wilcoxon
+wilcox.test(data_perempuan$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`,data_laki_laki$`Berapa lama waktu yang Anda habiskan setiap harinya untuk menggunakan aplikasi Tiktok?`, alternative = c("greater"))
+```
+
+hipotesis H0: Mayoritas responden tidak setuju konten FYP (For Your Page) yang muncul di beranda sudah sesuai dengan minat H1: Mayoritas responden setuju konten FYP (For Your Page) yang muncul di beranda sudah sesuai dengan minat
+
+```{r prop test}
+setuju <- sum(data$`Apakah mayoritas konten FYP (For Your Page) yang muncul di beranda sudah sesuai dengan minat Anda?`=="YA")
+setuju
+ptest<-prop.test(setuju, n = nrow(data), p = .5, alternative = "two.sided");ptest
+cat("Hasil Uji Proporsi Satu Sampel")
+cat("Chisq-value:", ptest$statistic, "\n")
+cat("P-value:", ptest$p.value, "\n")
+```
+
+Ho: Proporsi pilihan fitur unggulan pengguna tidak berbeda antara jenis kelamin. Ha: Proporsi pilihan fitur unggulan pengguna antara kelompok jenis kelamin.
+
+```{r}
+puas_tab2 <- table(data$`Jenis Kelamin`, data$`Apa fitur unggulan Tiktok dari aplikasi serupa? (Boleh pilih lebih dari satu)`)
+fisher.test(puas_tab2)
+```
+
+Ho: Proporsi pengguna yang merasa sangat puas/puas tidak berbeda antara jenis kelamin. Ha: Proporsi pengguna yang merasa sangat puas/puas berbeda antara kelompok jenis kelamin.
+
+```{r}
+puas_tab <- table(data$`Jenis Kelamin`, data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`)
+fisher.test(puas_tab)
+```
+
+Ho: Proporsi pengguna yang merasa sangat puas/puas tidak berbeda antara tingkat pendidikan akhir. Ha: Proporsi pengguna yang merasa sangat puas/puas berbeda antara kelompok tingkat pendidikan akhir.
+
+```{r}
+puas_tab1 <- table(data$`Tingkat pendidikan terakhir yang telah Anda selesaikan?`, data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`)
+fisher.test(puas_tab1)
+```
+
+H0: Tidak ada hubungan antara Kemungkinan merekomendasikan Tiktok dan "Jenis Kelamin" dalam populasi. Ha: Ada hubungan antara 10. Kemungkinan merekomendasikan Tiktok dan "Jenis Kelamin" dalam populasi.
+
+```{r}
+b <- table(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`,data$`Jenis Kelamin`)
+fisher.test(b)
+```
+
+H0: Tidak ada hubungan antara Kemungkinan merekomendasikan Tiktok dan Tingkat Pendidikan terakhir dalam populasi. Ha: Ada hubungan antara Kemungkinan merekomendasikan Tiktok dan Tingkat Pendidikan terakhir dalam populasi.
+
+```{r}
+d <- table(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`,data$`Tingkat pendidikan terakhir yang telah Anda selesaikan?`)
+fisher.test(d)
+```
+
+H0: Tidak ada hubungan antara Kemungkinan merekomendasikan Tiktok dan Kepuasan Penggunaan Tiktok secara Keseluruhan dalam populasi. Ha: Ada hubungan antara Kemungkinan merekomendasikan Tiktok dan Kepuasan Penggunaan Tiktok secara Keseluruhan dalam populasi.
+
+```{r}
+e <- table(data$`Seberapa besar kemungkinan Anda merekomendasikan aplikasi Tiktok kepada rekan/keluarga`,data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`)
+fisher.test(e)
+```
+
+H0: Tidak ada hubungan antara Lama Penggunaan Tiktok dan Kepuasan Penggunaan Tiktok secara Keseluruhan dalam populasi. Ha: Ada hubungan antara Lama Penggunaan Tiktok secara Keseluruhan dalam populasi.
+
+```{r}
+f <- table(data$`Sudah berapa lama Anda menjadi pengguna aplikasi tiktok?`,data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`)
+fisher.test(f)
+```
+
+H0: Tidak ada hubungan antara Kesesuaian Konten FYP dengan Minat dan Kepuasan Penggunaan Tiktok secara Keseluruhan dalam populasi. Ha: Ada hubungan antara Kesesuaian Konten FYP dengan Minat dan Kepuasan Penggunaan Tiktok secara Keseluruhan dalam populasi.
+
+```{r}
+g <- table(data$`Apakah mayoritas konten FYP (For Your Page) yang muncul di beranda sudah sesuai dengan minat Anda?`,data$`Seberapa puaskah Anda menggunakan fitur Tiktok secara keseluruhan?`)
+fisher.test(g)
+```
